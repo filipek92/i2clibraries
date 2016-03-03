@@ -1,5 +1,6 @@
 import smbus
-from time import *
+from time import sleep
+from datetime import datetime
 
 # Older version of library that uses smbus, no longer updated
 # For new projects use i2c_lcd
@@ -42,6 +43,9 @@ class i2c_lcd:
 
 		self.backlight_state = False
 
+		self.frame = list(' '*256)
+		self.pointer = 0;
+
 		# Activate LCD
 		initialize_i2c_data = 0x00
 		initialize_i2c_data = self._pinInterpret(self.d4, initialize_i2c_data, 0b1)
@@ -75,23 +79,41 @@ class i2c_lcd:
 		self._write(data)
 
 	def setPosition(self, line, pos):
-		if line == 1:
-			address = pos
+		if line == 0:
+			self.pointer = pos
+		elif line == 1:
+			self.pointer = 0x40 + pos
 		elif line == 2:
-			address = 0x40 + pos
+			self.pointer = 0x14 + pos
 		elif line == 3:
-			address = 0x14 + pos
-		elif line == 4:
-			address = 0x54 + pos
-		self.command(self.CMD_DDRAM_Set + address)
+			self.pointer = 0x54 + pos
+		else:
+			raise ValueError("Line must be between 0 and 3")
+		self.command(self.CMD_DDRAM_Set + self.pointer)
 	
 	def writeChar(self, char):
+		self.frame[self.pointer] = char;
+		self.pointer += 1
+		self.pointer %= 128
 		self._write(ord(char), False)
 
-	def writeString(self, string):
+	def writeString(self, string, line=-1, pos=0):
+		if line != -1:
+			self.setPosition(line, pos)
 		for c in string:
 			self.writeChar(c)
-      
+
+	def printTime(self, format="%H:%M:%S %d.%m.%Y", line=-1, pos=0):
+		self.writeString(datetime.now().strftime(format), line, pos)
+
+	def getView(self):
+		return (
+			''.join(self.frame[0x00:0x14]),
+			''.join(self.frame[0x40:0x54]),
+			''.join(self.frame[0x14:0x28]),
+			''.join(self.frame[0x54:0x68])
+			)
+	  
 	def backLightOn(self):
 		if self.backlight >= 0:
 			self.bus.write_byte(self.addr, self._pinInterpret(self.backlight, 0x00, 0b1))
@@ -134,7 +156,7 @@ class i2c_lcd:
 		
 		self._enable(i2c_data)
 		
-		sleep(0.01)
+		#sleep(0.01)
 		
 	def _pinInterpret(self, pin, data, value="0b0"):
 		if value:
