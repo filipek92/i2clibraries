@@ -10,11 +10,9 @@ def bcd2dec(bcd, mask=0xFF):
 	return (bcd & 0x0F) + (bcd//16*10)
 
 class ds3231():
-	def __init__(self, addr, port, timezone):
+	def __init__(self, addr, port):
 		self.addr = addr
-		self.bus = smbus.SMBus(port)
-		self.timezone = timezone
-	
+		self.bus = smbus.SMBus(port)	
 	
 	def utcnow(self):
 		data = self.bus.read_i2c_block_data(self.addr, 0, 7)
@@ -45,4 +43,4 @@ class ds3231():
 
 if __name__ == '__main__':
 	clock = ds3231(0x68, 1);
-	print(clock.get())
+	print(clock.now())
